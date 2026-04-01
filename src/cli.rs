@@ -1,7 +1,11 @@
 use clap::{Parser, ValueEnum};
 
 #[derive(Parser, Debug)]
-#[command(name = "deob", version, about = "De-obfuscate text with a hacker-style animation")]
+#[command(
+    name = "deob",
+    version,
+    about = "De-obfuscate text with a hacker-style animation"
+)]
 pub struct Args {
     /// Text to animate (reads from stdin if omitted)
     pub text: Option<String>,
