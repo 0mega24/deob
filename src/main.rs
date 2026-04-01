@@ -3,9 +3,7 @@ mod charset;
 mod animator;
 mod integrations;
 
-use std::io::{self, BufRead, Write};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::io::{self, BufRead};
 use std::time::Duration;
 
 use clap::Parser;
@@ -50,17 +48,12 @@ fn main() {
     };
 
     // Ctrl+C: restore cursor before exit
-    let interrupted = Arc::new(AtomicBool::new(false));
-    {
-        let interrupted = interrupted.clone();
-        ctrlc::set_handler(move || {
-            let mut stdout = io::stdout();
-            stdout.execute(cursor::Show).ok();
-            interrupted.store(true, Ordering::SeqCst);
-            std::process::exit(0);
-        })
-        .expect("failed to set Ctrl+C handler");
-    }
+    ctrlc::set_handler(move || {
+        let mut stdout = io::stdout();
+        stdout.execute(cursor::Show).ok();
+        std::process::exit(0);
+    })
+    .expect("failed to set Ctrl+C handler");
 
     let mut stdout = io::stdout();
     animate(&text, &config, &mut stdout);

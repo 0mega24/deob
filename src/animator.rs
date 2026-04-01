@@ -34,6 +34,7 @@ fn to_crossterm_color(color: &AnsiColor) -> Color {
     }
 }
 
+#[allow(dead_code)]
 pub fn build_schedule(len: usize, order: RevealOrder, rng: &mut impl Rng) -> Vec<usize> {
     let mut indices: Vec<usize> = (0..len).collect();
     if order == RevealOrder::Random {
