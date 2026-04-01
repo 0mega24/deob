@@ -65,6 +65,8 @@ pub fn animate(text: &str, config: &AnimConfig, stdout: &mut impl Write) {
     let schedule = build_schedule(non_ws_indices, config.order.clone(), &mut rng);
     let mut locked = vec![false; len];
 
+    crossterm::terminal::enable_raw_mode().ok();
+
     // Hide cursor
     stdout.execute(cursor::Hide).ok();
 
@@ -110,6 +112,7 @@ pub fn animate(text: &str, config: &AnimConfig, stdout: &mut impl Write) {
 
     stdout.execute(ResetColor).ok();
     stdout.execute(cursor::Show).ok();
+    crossterm::terminal::disable_raw_mode().ok();
     writeln!(stdout).ok();
     stdout.flush().ok();
 }
