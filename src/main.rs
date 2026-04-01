@@ -50,6 +50,7 @@ fn main() {
     // Ctrl+C: restore cursor before exit
     ctrlc::set_handler(move || {
         let mut stdout = io::stdout();
+        stdout.execute(crossterm::style::ResetColor).ok();
         stdout.execute(cursor::Show).ok();
         std::process::exit(0);
     })

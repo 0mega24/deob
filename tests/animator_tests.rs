@@ -4,14 +4,14 @@ use rand::SeedableRng;
 
 #[test]
 fn ordered_schedule_is_left_to_right() {
-    let schedule = build_schedule(5, AnimOrder::Ordered, &mut rand::thread_rng());
+    let schedule = build_schedule(vec![0, 1, 2, 3, 4], AnimOrder::Ordered, &mut rand::thread_rng());
     assert_eq!(schedule, vec![0, 1, 2, 3, 4]);
 }
 
 #[test]
 fn random_schedule_contains_all_indices() {
     let mut rng = rand::rngs::SmallRng::seed_from_u64(99);
-    let schedule = build_schedule(5, AnimOrder::Random, &mut rng);
+    let schedule = build_schedule(vec![0, 1, 2, 3, 4], AnimOrder::Random, &mut rng);
     let mut sorted = schedule.clone();
     sorted.sort();
     assert_eq!(sorted, vec![0, 1, 2, 3, 4]);
@@ -19,9 +19,8 @@ fn random_schedule_contains_all_indices() {
 
 #[test]
 fn random_schedule_is_not_always_ordered() {
-    // With 10 elements and a fixed seed, the shuffle should differ from 0..10
     let mut rng = rand::rngs::SmallRng::seed_from_u64(1);
-    let schedule = build_schedule(10, AnimOrder::Random, &mut rng);
+    let schedule = build_schedule(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9], AnimOrder::Random, &mut rng);
     let ordered: Vec<usize> = (0..10).collect();
     assert_ne!(schedule, ordered);
 }

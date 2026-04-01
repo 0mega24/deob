@@ -35,8 +35,8 @@ fn to_crossterm_color(color: &AnsiColor) -> Color {
 }
 
 #[allow(dead_code)]
-pub fn build_schedule(len: usize, order: RevealOrder, rng: &mut impl Rng) -> Vec<usize> {
-    let mut indices: Vec<usize> = (0..len).collect();
+pub fn build_schedule(candidate_indices: Vec<usize>, order: RevealOrder, rng: &mut impl Rng) -> Vec<usize> {
+    let mut indices = candidate_indices;
     if order == RevealOrder::Random {
         indices.shuffle(rng);
     }
@@ -53,19 +53,14 @@ pub fn animate(text: &str, config: &AnimConfig, stdout: &mut impl Write) {
     let mut rng = rand::thread_rng();
     let color = to_crossterm_color(&config.color);
 
+    // Build non-whitespace indices for reveal schedule
     let non_ws_indices: Vec<usize> = chars
         .iter()
         .enumerate()
         .filter(|(_, &c)| !c.is_whitespace())
         .map(|(i, _)| i)
         .collect();
-    let schedule = if config.order == RevealOrder::Random {
-        let mut s = non_ws_indices.clone();
-        s.shuffle(&mut rng);
-        s
-    } else {
-        non_ws_indices
-    };
+    let schedule = build_schedule(non_ws_indices, config.order.clone(), &mut rng);
     let schedule_len = schedule.len();
     let mut locked = vec![false; len];
 
