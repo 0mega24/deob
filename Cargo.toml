@@ -1,0 +1,13 @@
+[package]
+name = "deob"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "deob"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+crossterm = "0.27"
+rand = "0.8"
