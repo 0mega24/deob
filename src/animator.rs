@@ -52,13 +52,26 @@ pub fn animate(text: &str, config: &AnimConfig, stdout: &mut impl Write) {
     let mut rng = rand::thread_rng();
     let color = to_crossterm_color(&config.color);
 
-    let schedule = build_schedule(len, config.order.clone(), &mut rng);
+    let non_ws_indices: Vec<usize> = chars
+        .iter()
+        .enumerate()
+        .filter(|(_, &c)| !c.is_whitespace())
+        .map(|(i, _)| i)
+        .collect();
+    let schedule = if config.order == RevealOrder::Random {
+        let mut s = non_ws_indices.clone();
+        s.shuffle(&mut rng);
+        s
+    } else {
+        non_ws_indices
+    };
+    let schedule_len = schedule.len();
     let mut locked = vec![false; len];
 
     // Hide cursor
     stdout.execute(cursor::Hide).ok();
 
-    for step in 0..=len {
+    for step in 0..=schedule_len {
         // Mark next character as locked
         if step > 0 {
             locked[schedule[step - 1]] = true;
@@ -79,7 +92,7 @@ pub fn animate(text: &str, config: &AnimConfig, stdout: &mut impl Write) {
 
         stdout.flush().ok();
 
-        if step < len {
+        if step < schedule_len {
             std::thread::sleep(config.speed);
         }
     }
