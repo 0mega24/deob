@@ -27,11 +27,11 @@ pub struct Args {
     pub order: RevealOrder,
 
     /// Minimum scramble frames per character before it locks
-    #[arg(long, default_value_t = 3)]
+    #[arg(short = 'm', long, default_value_t = 3)]
     pub scrambles_min: u32,
 
     /// Maximum scramble frames per character before it locks
-    #[arg(long, default_value_t = 10)]
+    #[arg(short = 'x', long, default_value_t = 10)]
     pub scrambles_max: u32,
 }
 
