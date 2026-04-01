@@ -35,6 +35,8 @@ fn animate_output_ends_with_real_text_and_newline() {
         color: AnsiColor::Green,
         charset: ResolvedCharSet::Alnum,
         order: AnimOrder::Ordered,
+        scrambles_min: 1,
+        scrambles_max: 1,
     };
     let mut buf: Vec<u8> = Vec::new();
     deob::animator::animate("hi", &config, &mut buf);

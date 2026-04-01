@@ -19,6 +19,8 @@ pub struct AnimConfig {
     pub color: AnsiColor,
     pub charset: ResolvedCharSet,
     pub order: RevealOrder,
+    pub scrambles_min: u32,
+    pub scrambles_max: u32,
 }
 
 fn to_crossterm_color(color: &AnsiColor) -> Color {
@@ -61,37 +63,50 @@ pub fn animate(text: &str, config: &AnimConfig, stdout: &mut impl Write) {
         .map(|(i, _)| i)
         .collect();
     let schedule = build_schedule(non_ws_indices, config.order.clone(), &mut rng);
-    let schedule_len = schedule.len();
     let mut locked = vec![false; len];
 
     // Hide cursor
     stdout.execute(cursor::Hide).ok();
 
-    for step in 0..=schedule_len {
-        // Mark next character as locked
-        if step > 0 {
-            locked[schedule[step - 1]] = true;
-        }
-
-        // Move to start of line
-        stdout.execute(cursor::MoveToColumn(0)).ok();
-        stdout.execute(SetForegroundColor(color)).ok();
-
-        for (i, &real_char) in chars.iter().enumerate() {
-            if real_char.is_whitespace() || locked[i] {
-                stdout.execute(Print(real_char)).ok();
-            } else {
-                let noise = random_char(config.charset, &mut rng);
-                stdout.execute(Print(noise)).ok();
-            }
-        }
-
-        stdout.flush().ok();
-
-        if step < schedule_len {
-            std::thread::sleep(config.speed);
+    // Initial frame: all noise (no chars locked yet)
+    stdout.execute(cursor::MoveToColumn(0)).ok();
+    stdout.execute(SetForegroundColor(color)).ok();
+    for (i, &real_char) in chars.iter().enumerate() {
+        if real_char.is_whitespace() || locked[i] {
+            stdout.execute(Print(real_char)).ok();
+        } else {
+            stdout.execute(Print(random_char(config.charset, &mut rng))).ok();
         }
     }
+    stdout.flush().ok();
+    std::thread::sleep(config.speed);
+
+    // For each char in reveal schedule: pick random frame count, churn, then lock
+    for &idx in &schedule {
+        let n = rng.gen_range(config.scrambles_min..=config.scrambles_max);
+        for _ in 0..n {
+            stdout.execute(cursor::MoveToColumn(0)).ok();
+            stdout.execute(SetForegroundColor(color)).ok();
+            for (i, &real_char) in chars.iter().enumerate() {
+                if real_char.is_whitespace() || locked[i] {
+                    stdout.execute(Print(real_char)).ok();
+                } else {
+                    stdout.execute(Print(random_char(config.charset, &mut rng))).ok();
+                }
+            }
+            stdout.flush().ok();
+            std::thread::sleep(config.speed);
+        }
+        locked[idx] = true;
+    }
+
+    // Final frame: all real chars
+    stdout.execute(cursor::MoveToColumn(0)).ok();
+    stdout.execute(SetForegroundColor(color)).ok();
+    for &real_char in &chars {
+        stdout.execute(Print(real_char)).ok();
+    }
+    stdout.flush().ok();
 
     stdout.execute(ResetColor).ok();
     stdout.execute(cursor::Show).ok();

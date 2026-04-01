@@ -38,6 +38,11 @@ fn main() {
         return;
     }
 
+    if args.scrambles_min > args.scrambles_max {
+        eprintln!("deob: --scrambles-min ({}) cannot exceed --scrambles-max ({})", args.scrambles_min, args.scrambles_max);
+        std::process::exit(1);
+    }
+
     let resolved_charset = resolve(args.charset, &text);
 
     let config = AnimConfig {
@@ -45,6 +50,8 @@ fn main() {
         color: args.color,
         charset: resolved_charset,
         order: args.order,
+        scrambles_min: args.scrambles_min,
+        scrambles_max: args.scrambles_max,
     };
 
     // Ctrl+C: restore cursor before exit
