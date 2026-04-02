@@ -64,6 +64,38 @@ fn strip_ansi(s: &str) -> String {
     result
 }
 
+/// Strip cursor-movement ANSI codes (A-H, J-l, n-z) but keep SGR color codes (ending in 'm').
+/// fastfetch logo output embeds cursor-positioning sequences to set up side-by-side rendering;
+/// those must be removed before deob prints the lines or they corrupt cursor positioning.
+fn strip_cursor_codes(s: &str) -> String {
+    let mut result = String::new();
+    let mut chars = s.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '\x1b' && chars.peek() == Some(&'[') {
+            chars.next(); // consume '['
+            let mut params = String::new();
+            while let Some(&c) = chars.peek() {
+                chars.next();
+                if c.is_ascii_alphabetic() {
+                    if c == 'm' {
+                        // SGR color code — preserve it
+                        result.push('\x1b');
+                        result.push('[');
+                        result.push_str(&params);
+                        result.push('m');
+                    }
+                    // Any other letter (A-H = cursor move, J/K = erase, etc.) — discard
+                    break;
+                }
+                params.push(c);
+            }
+        } else {
+            result.push(ch);
+        }
+    }
+    result
+}
+
 /// Visual display width: strip ANSI codes and marker characters.
 fn visual_width(s: &str, marker: char) -> usize {
     strip_ansi(s).chars().filter(|&c| c != marker).count()
@@ -243,9 +275,9 @@ pub fn animate_side_by_side(
     let mut rng = rand::thread_rng();
 
     let left_segs: Vec<Vec<Segment>> =
-        layout.iter().map(|(l, _, _)| parse_markers(l, marker)).collect();
+        layout.iter().map(|(l, _, _)| parse_markers(&strip_cursor_codes(l), marker)).collect();
     let right_segs: Vec<Vec<Segment>> =
-        layout.iter().map(|(_, _, r)| parse_markers(r, marker)).collect();
+        layout.iter().map(|(_, _, r)| parse_markers(&strip_cursor_codes(r), marker)).collect();
     let paddings: Vec<usize> = layout.iter().map(|(_, p, _)| *p).collect();
 
     let max_chars = left_segs
