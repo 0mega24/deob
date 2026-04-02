@@ -163,6 +163,45 @@ fn build_ready(
         .collect()
 }
 
+fn render_segs(
+    stdout: &mut impl Write,
+    segs: &[ReadySegment],
+    frame: usize,
+    charset: ResolvedCharSet,
+    anim_color: Color,
+    in_anim: &mut bool,
+    rng: &mut impl Rng,
+) {
+    for seg in segs {
+        match seg {
+            ReadySegment::Static(s) => {
+                if *in_anim {
+                    stdout.execute(ResetColor).ok();
+                    *in_anim = false;
+                }
+                stdout.execute(Print(s)).ok();
+            }
+            ReadySegment::Scrambled(chars) => {
+                for sc in chars {
+                    if sc.lock_frame <= frame || sc.real.is_whitespace() {
+                        if *in_anim {
+                            stdout.execute(ResetColor).ok();
+                            *in_anim = false;
+                        }
+                        stdout.execute(Print(sc.real)).ok();
+                    } else {
+                        if !*in_anim {
+                            stdout.execute(SetForegroundColor(anim_color)).ok();
+                            *in_anim = true;
+                        }
+                        stdout.execute(Print(random_char(charset, rng))).ok();
+                    }
+                }
+            }
+        }
+    }
+}
+
 fn render_row(
     stdout: &mut impl Write,
     left_segs: &[ReadySegment],
@@ -170,36 +209,19 @@ fn render_row(
     right_segs: &[ReadySegment],
     frame: usize,
     charset: ResolvedCharSet,
+    anim_color: Color,
     rng: &mut impl Rng,
 ) {
-    for seg in left_segs {
-        match seg {
-            ReadySegment::Static(s) => { stdout.execute(Print(s)).ok(); }
-            ReadySegment::Scrambled(chars) => {
-                for sc in chars {
-                    if sc.lock_frame <= frame || sc.real.is_whitespace() {
-                        stdout.execute(Print(sc.real)).ok();
-                    } else {
-                        stdout.execute(Print(random_char(charset, rng))).ok();
-                    }
-                }
-            }
-        }
+    let mut in_anim = false;
+    render_segs(stdout, left_segs, frame, charset, anim_color, &mut in_anim, rng);
+    if in_anim {
+        stdout.execute(ResetColor).ok();
+        in_anim = false;
     }
     stdout.execute(Print(" ".repeat(padding))).ok();
-    for seg in right_segs {
-        match seg {
-            ReadySegment::Static(s) => { stdout.execute(Print(s)).ok(); }
-            ReadySegment::Scrambled(chars) => {
-                for sc in chars {
-                    if sc.lock_frame <= frame || sc.real.is_whitespace() {
-                        stdout.execute(Print(sc.real)).ok();
-                    } else {
-                        stdout.execute(Print(random_char(charset, rng))).ok();
-                    }
-                }
-            }
-        }
+    render_segs(stdout, right_segs, frame, charset, anim_color, &mut in_anim, rng);
+    if in_anim {
+        stdout.execute(ResetColor).ok();
     }
     stdout.execute(Print('\n')).ok();
 }
@@ -238,7 +260,6 @@ pub fn animate_side_by_side(
 
     let color = to_crossterm_color(&config.color);
     stdout.execute(cursor::Hide).ok();
-    stdout.execute(SetForegroundColor(color)).ok();
 
     let per_char = if max_chars == 0 {
         1
@@ -250,12 +271,18 @@ pub fn animate_side_by_side(
     let left_ready = build_ready(left_segs, total_frames.max(1), &config.order, &mut rng);
     let right_ready = build_ready(right_segs, total_frames.max(1), &config.order, &mut rng);
 
+    // Reserve vertical space so \n on the last line never causes a scroll that
+    // breaks MoveUp tracking.
+    for _ in 0..n_lines {
+        stdout.execute(Print('\n')).ok();
+    }
+    stdout.execute(cursor::MoveUp(n_lines as u16)).ok();
+
     if max_chars == 0 {
         for (i, left_row) in left_ready.iter().enumerate() {
             stdout.execute(cursor::MoveToColumn(0)).ok();
-            render_row(stdout, left_row, paddings[i], &right_ready[i], 1, config.charset, &mut rng);
+            render_row(stdout, left_row, paddings[i], &right_ready[i], 1, config.charset, color, &mut rng);
         }
-        stdout.execute(ResetColor).ok();
         stdout.execute(cursor::Show).ok();
         stdout.flush().ok();
         return;
@@ -264,7 +291,7 @@ pub fn animate_side_by_side(
     // Initial frame — all scrambled chars show noise (lock_frames all >= 1)
     for (i, left_row) in left_ready.iter().enumerate() {
         stdout.execute(cursor::MoveToColumn(0)).ok();
-        render_row(stdout, left_row, paddings[i], &right_ready[i], 0, config.charset, &mut rng);
+        render_row(stdout, left_row, paddings[i], &right_ready[i], 0, config.charset, color, &mut rng);
     }
     stdout.flush().ok();
     std::thread::sleep(config.speed);
@@ -274,7 +301,7 @@ pub fn animate_side_by_side(
         stdout.execute(cursor::MoveUp(n_lines as u16)).ok();
         for (i, left_row) in left_ready.iter().enumerate() {
             stdout.execute(cursor::MoveToColumn(0)).ok();
-            render_row(stdout, left_row, paddings[i], &right_ready[i], frame, config.charset, &mut rng);
+            render_row(stdout, left_row, paddings[i], &right_ready[i], frame, config.charset, color, &mut rng);
         }
         stdout.flush().ok();
         if frame < total_frames {
@@ -282,7 +309,6 @@ pub fn animate_side_by_side(
         }
     }
 
-    stdout.execute(ResetColor).ok();
     stdout.execute(cursor::Show).ok();
     stdout.flush().ok();
 }
