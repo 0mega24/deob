@@ -33,6 +33,22 @@ pub struct Args {
     /// Maximum scramble frames per character before it locks
     #[arg(short = 'x', long, default_value_t = 10)]
     pub scrambles_max: u32,
+
+    /// Left column file for side-by-side mode (use with --right)
+    #[arg(long)]
+    pub left: Option<std::path::PathBuf>,
+
+    /// Right column file for side-by-side mode (use with --left)
+    #[arg(long)]
+    pub right: Option<std::path::PathBuf>,
+
+    /// Extra spaces between columns after left-column padding
+    #[arg(long, default_value_t = 2)]
+    pub gap: usize,
+
+    /// Single character delimiting scramble regions in both columns
+    #[arg(long, default_value_t = '~')]
+    pub marker: char,
 }
 
 #[derive(ValueEnum, Clone, Debug, PartialEq)]
