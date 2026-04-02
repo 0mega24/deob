@@ -7,7 +7,7 @@ CARGO   := $(shell which cargo)
 build:
 	$(CARGO) build --release
 
-install: build
+install:
 	install -m 755 target/release/$(BINARY) $(DESTDIR)/$(BINARY)
 
 uninstall:
