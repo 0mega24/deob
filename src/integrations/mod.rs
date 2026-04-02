@@ -101,6 +101,16 @@ fn visual_width(s: &str, marker: char) -> usize {
     strip_ansi(s).chars().filter(|&c| c != marker).count()
 }
 
+/// Trim trailing lines that have no visible content (empty or ANSI-only).
+fn trim_trailing_empty<'a>(lines: &'a [String], marker: char) -> &'a [String] {
+    let end = lines
+        .iter()
+        .rposition(|l| visual_width(l, marker) > 0)
+        .map(|i| i + 1)
+        .unwrap_or(0);
+    &lines[..end]
+}
+
 /// Pair left and right column lines with computed per-row padding.
 /// Returns `Vec<(left_raw, padding_spaces, right_raw)>`.
 /// The shorter column is padded with empty strings to match the taller column.
@@ -266,6 +276,8 @@ pub fn animate_side_by_side(
     config: &AnimConfig,
     stdout: &mut impl Write,
 ) {
+    let left_lines = trim_trailing_empty(left_lines, marker);
+    let right_lines = trim_trailing_empty(right_lines, marker);
     let layout = compose_layout(left_lines, right_lines, gap, marker);
     let n_lines = layout.len();
     if n_lines == 0 {
