@@ -113,3 +113,71 @@ fn marker_chars_not_counted_in_width() {
     let layout = compose_layout(&left, &right, 1, '~');
     assert_eq!(layout[0].1, 1);
 }
+
+use deob::integrations::animate_side_by_side;
+use deob::animator::{AnimConfig, RevealOrder};
+use deob::charset::ResolvedCharSet;
+use deob::cli::AnsiColor;
+use std::time::Duration;
+
+fn zero_config() -> AnimConfig {
+    AnimConfig {
+        speed: Duration::from_millis(0),
+        color: AnsiColor::Green,
+        charset: ResolvedCharSet::Alnum,
+        order: RevealOrder::Ordered,
+        scrambles_min: 1,
+        scrambles_max: 1,
+    }
+}
+
+#[test]
+fn animate_sbs_output_contains_real_text() {
+    let left = vec!["logo".to_string()];
+    let right = vec!["OS: ~Ubuntu~".to_string()];
+    let mut buf: Vec<u8> = Vec::new();
+    animate_side_by_side(&left, &right, 2, '~', &zero_config(), &mut buf);
+    let output = String::from_utf8_lossy(&buf);
+    assert!(output.contains("logo"), "left column text missing");
+    assert!(output.contains("OS: "), "static right text missing");
+    assert!(output.contains("Ubuntu"), "scrambled right text missing in final state");
+}
+
+#[test]
+fn animate_sbs_no_markers_prints_static() {
+    let left = vec!["left".to_string()];
+    let right = vec!["right".to_string()];
+    let mut buf: Vec<u8> = Vec::new();
+    animate_side_by_side(&left, &right, 2, '~', &zero_config(), &mut buf);
+    let output = String::from_utf8_lossy(&buf);
+    assert!(output.contains("left"));
+    assert!(output.contains("right"));
+}
+
+#[test]
+fn animate_sbs_both_columns_with_markers() {
+    let left = vec!["~logo~".to_string()];
+    let right = vec!["~info~".to_string()];
+    let mut buf: Vec<u8> = Vec::new();
+    animate_side_by_side(&left, &right, 2, '~', &zero_config(), &mut buf);
+    let output = String::from_utf8_lossy(&buf);
+    assert!(output.contains("logo"));
+    assert!(output.contains("info"));
+}
+
+#[test]
+fn animate_sbs_empty_inputs_does_not_panic() {
+    let mut buf: Vec<u8> = Vec::new();
+    animate_side_by_side(&[], &[], 2, '~', &zero_config(), &mut buf);
+}
+
+#[test]
+fn animate_sbs_multiline() {
+    let left = vec!["a".to_string(), "b".to_string()];
+    let right = vec!["~x~".to_string(), "~y~".to_string()];
+    let mut buf: Vec<u8> = Vec::new();
+    animate_side_by_side(&left, &right, 1, '~', &zero_config(), &mut buf);
+    let output = String::from_utf8_lossy(&buf);
+    assert!(output.contains('x'));
+    assert!(output.contains('y'));
+}

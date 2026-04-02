@@ -7,8 +7,7 @@ CARGO   := $(shell which cargo)
 build:
 	$(CARGO) build --release
 
-# install only copies — run 'make build' first, then 'sudo make install'
-install:
+install: build
 	install -m 755 target/release/$(BINARY) $(DESTDIR)/$(BINARY)
 
 uninstall:

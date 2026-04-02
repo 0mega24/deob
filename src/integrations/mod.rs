@@ -92,3 +92,197 @@ pub fn compose_layout(
         })
         .collect()
 }
+
+use std::io::Write;
+
+use crossterm::{
+    cursor,
+    style::{Color, Print, ResetColor, SetForegroundColor},
+    ExecutableCommand,
+};
+use rand::Rng;
+
+use crate::animator::{AnimConfig, RevealOrder};
+use crate::charset::{random_char, ResolvedCharSet};
+use crate::cli::AnsiColor;
+
+fn to_crossterm_color(color: &AnsiColor) -> Color {
+    match color {
+        AnsiColor::Black => Color::Black,
+        AnsiColor::Red => Color::DarkRed,
+        AnsiColor::Green => Color::DarkGreen,
+        AnsiColor::Yellow => Color::DarkYellow,
+        AnsiColor::Blue => Color::DarkBlue,
+        AnsiColor::Magenta => Color::DarkMagenta,
+        AnsiColor::Cyan => Color::DarkCyan,
+        AnsiColor::White => Color::White,
+    }
+}
+
+struct ScrambleChar {
+    real: char,
+    lock_frame: usize,
+}
+
+enum ReadySegment {
+    Static(String),
+    Scrambled(Vec<ScrambleChar>),
+}
+
+fn build_ready(
+    segs: Vec<Vec<Segment>>,
+    total_frames: usize,
+    order: &RevealOrder,
+    rng: &mut impl Rng,
+) -> Vec<Vec<ReadySegment>> {
+    segs.into_iter()
+        .map(|line| {
+            line.into_iter()
+                .map(|seg| match seg {
+                    Segment::Static(s) => ReadySegment::Static(s),
+                    Segment::Scrambled(s) => {
+                        let chars: Vec<char> = s.chars().collect();
+                        let n = chars.len();
+                        let mut frames: Vec<usize> = (0..n)
+                            .map(|_| rng.gen_range(1..=total_frames))
+                            .collect();
+                        if *order == RevealOrder::Ordered {
+                            frames.sort_unstable();
+                        }
+                        ReadySegment::Scrambled(
+                            chars
+                                .into_iter()
+                                .zip(frames)
+                                .map(|(c, f)| ScrambleChar { real: c, lock_frame: f })
+                                .collect(),
+                        )
+                    }
+                })
+                .collect()
+        })
+        .collect()
+}
+
+fn render_row(
+    stdout: &mut impl Write,
+    left_segs: &[ReadySegment],
+    padding: usize,
+    right_segs: &[ReadySegment],
+    frame: usize,
+    charset: ResolvedCharSet,
+    rng: &mut impl Rng,
+) {
+    for seg in left_segs {
+        match seg {
+            ReadySegment::Static(s) => { stdout.execute(Print(s)).ok(); }
+            ReadySegment::Scrambled(chars) => {
+                for sc in chars {
+                    if sc.lock_frame <= frame || sc.real.is_whitespace() {
+                        stdout.execute(Print(sc.real)).ok();
+                    } else {
+                        stdout.execute(Print(random_char(charset, rng))).ok();
+                    }
+                }
+            }
+        }
+    }
+    stdout.execute(Print(" ".repeat(padding))).ok();
+    for seg in right_segs {
+        match seg {
+            ReadySegment::Static(s) => { stdout.execute(Print(s)).ok(); }
+            ReadySegment::Scrambled(chars) => {
+                for sc in chars {
+                    if sc.lock_frame <= frame || sc.real.is_whitespace() {
+                        stdout.execute(Print(sc.real)).ok();
+                    } else {
+                        stdout.execute(Print(random_char(charset, rng))).ok();
+                    }
+                }
+            }
+        }
+    }
+    stdout.execute(Print('\n')).ok();
+}
+
+pub fn animate_side_by_side(
+    left_lines: &[String],
+    right_lines: &[String],
+    gap: usize,
+    marker: char,
+    config: &AnimConfig,
+    stdout: &mut impl Write,
+) {
+    let layout = compose_layout(left_lines, right_lines, gap, marker);
+    let n_lines = layout.len();
+    if n_lines == 0 {
+        return;
+    }
+
+    let mut rng = rand::thread_rng();
+
+    let left_segs: Vec<Vec<Segment>> =
+        layout.iter().map(|(l, _, _)| parse_markers(l, marker)).collect();
+    let right_segs: Vec<Vec<Segment>> =
+        layout.iter().map(|(_, _, r)| parse_markers(r, marker)).collect();
+    let paddings: Vec<usize> = layout.iter().map(|(_, p, _)| *p).collect();
+
+    let max_chars = left_segs
+        .iter()
+        .chain(right_segs.iter())
+        .flat_map(|line| line.iter())
+        .filter_map(|seg| {
+            if let Segment::Scrambled(s) = seg { Some(s.chars().count()) } else { None }
+        })
+        .max()
+        .unwrap_or(0);
+
+    let color = to_crossterm_color(&config.color);
+    stdout.execute(cursor::Hide).ok();
+    stdout.execute(SetForegroundColor(color)).ok();
+
+    let per_char = if max_chars == 0 {
+        1
+    } else {
+        rng.gen_range(config.scrambles_min..=config.scrambles_max) as usize
+    };
+    let total_frames = max_chars * per_char;
+
+    let left_ready = build_ready(left_segs, total_frames.max(1), &config.order, &mut rng);
+    let right_ready = build_ready(right_segs, total_frames.max(1), &config.order, &mut rng);
+
+    if max_chars == 0 {
+        for (i, left_row) in left_ready.iter().enumerate() {
+            stdout.execute(cursor::MoveToColumn(0)).ok();
+            render_row(stdout, left_row, paddings[i], &right_ready[i], 1, config.charset, &mut rng);
+        }
+        stdout.execute(ResetColor).ok();
+        stdout.execute(cursor::Show).ok();
+        stdout.flush().ok();
+        return;
+    }
+
+    // Initial frame — all scrambled chars show noise (lock_frames all >= 1)
+    for (i, left_row) in left_ready.iter().enumerate() {
+        stdout.execute(cursor::MoveToColumn(0)).ok();
+        render_row(stdout, left_row, paddings[i], &right_ready[i], 0, config.charset, &mut rng);
+    }
+    stdout.flush().ok();
+    std::thread::sleep(config.speed);
+
+    // Frames 1..=total_frames
+    for frame in 1..=total_frames {
+        stdout.execute(cursor::MoveUp(n_lines as u16)).ok();
+        for (i, left_row) in left_ready.iter().enumerate() {
+            stdout.execute(cursor::MoveToColumn(0)).ok();
+            render_row(stdout, left_row, paddings[i], &right_ready[i], frame, config.charset, &mut rng);
+        }
+        stdout.flush().ok();
+        if frame < total_frames {
+            std::thread::sleep(config.speed);
+        }
+    }
+
+    stdout.execute(ResetColor).ok();
+    stdout.execute(cursor::Show).ok();
+    stdout.flush().ok();
+}

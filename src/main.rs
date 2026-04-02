@@ -56,7 +56,7 @@ fn main() {
         let config = AnimConfig {
             speed: Duration::from_millis(args.speed),
             color: args.color,
-            charset: resolve(args.charset, &right_lines.join("\n")),
+            charset: resolve(args.charset, &[left_lines.join("\n"), right_lines.join("\n")].join("\n")),
             order: args.order,
             scrambles_min: args.scrambles_min,
             scrambles_max: args.scrambles_max,
