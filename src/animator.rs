@@ -128,6 +128,9 @@ struct ScrambleChar {
     lock_frame: usize,
     /// ANSI codes immediately preceding this char; emitted on lock-in to restore original color.
     color_before: String,
+    /// Accumulated color state at this position (last non-empty color seen up to here).
+    /// Used by --color match to render noise chars in the right color.
+    effective_color: String,
 }
 
 enum ReadySegment {
@@ -152,14 +155,22 @@ fn build_ready_line(
                 if *order == RevealOrder::Ordered {
                     frames.sort_unstable();
                 }
+                let mut current_color = String::new();
                 ReadySegment::Scrambled(
                     text_chars
                         .into_iter()
                         .zip(frames)
-                        .map(|((c, color_before), f)| ScrambleChar {
-                            real: c,
-                            lock_frame: f,
-                            color_before,
+                        .map(|((c, color_before), f)| {
+                            if !color_before.is_empty() {
+                                current_color = color_before.clone();
+                            }
+                            let effective_color = current_color.clone();
+                            ScrambleChar {
+                                real: c,
+                                lock_frame: f,
+                                color_before,
+                                effective_color,
+                            }
                         })
                         .collect(),
                 )
@@ -207,6 +218,9 @@ fn render_segs(
                                 stdout.execute(SetForegroundColor(c)).ok();
                             }
                             *in_anim = true;
+                        }
+                        if anim_color.is_none() && !sc.effective_color.is_empty() {
+                            stdout.execute(Print(&sc.effective_color)).ok();
                         }
                         stdout.execute(Print(random_char(charset, rng))).ok();
                     }
