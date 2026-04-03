@@ -1,7 +1,7 @@
 mod cli;
 mod charset;
 mod animator;
-mod integrations;
+mod layout;
 
 use std::io::{self, BufRead};
 use std::sync::Arc;
@@ -13,7 +13,7 @@ use crossterm::{cursor, ExecutableCommand};
 
 use cli::Args;
 use charset::resolve;
-use animator::{animate, AnimConfig};
+use animator::{animate, animate_columns, AnimConfig};
 
 fn read_file_lines(path: &std::path::PathBuf) -> Result<Vec<String>, String> {
     std::fs::read_to_string(path)
@@ -34,46 +34,38 @@ fn main() {
 
     let mut stdout = io::stdout();
 
-    // Side-by-side mode
-    if args.left.is_some() || args.right.is_some() {
-        let (left_path, right_path) = match (args.left, args.right) {
-            (Some(l), Some(r)) => (l, r),
-            _ => {
-                eprintln!("deob: --left and --right must both be provided together");
-                std::process::exit(1);
+    // Column mode: --col <file> --col <file> [--col <file> ...]
+    if !args.cols.is_empty() {
+        if args.cols.len() < 2 {
+            eprintln!("deob: --col requires at least 2 columns");
+            std::process::exit(1);
+        }
+        let mut col_lines: Vec<Vec<String>> = Vec::new();
+        for path in &args.cols {
+            match read_file_lines(path) {
+                Ok(lines) => col_lines.push(lines),
+                Err(e) => {
+                    eprintln!("{e}");
+                    std::process::exit(1);
+                }
             }
-        };
-
-        let left_lines = match read_file_lines(&left_path) {
-            Ok(l) => l,
-            Err(e) => { eprintln!("{e}"); std::process::exit(1); }
-        };
-        let right_lines = match read_file_lines(&right_path) {
-            Ok(r) => r,
-            Err(e) => { eprintln!("{e}"); std::process::exit(1); }
-        };
-
+        }
+        let combined =
+            col_lines.iter().map(|c| c.join("\n")).collect::<Vec<_>>().join("\n");
         let config = AnimConfig {
             speed: Duration::from_millis(args.speed),
             color: args.color,
-            charset: resolve(args.charset, &[left_lines.join("\n"), right_lines.join("\n")].join("\n")),
+            charset: resolve(args.charset, &combined),
             order: args.order,
             scrambles_min: args.scrambles_min,
             scrambles_max: args.scrambles_max,
+            valign: args.valign,
         };
-
-        integrations::animate_side_by_side(
-            &left_lines,
-            &right_lines,
-            args.gap,
-            args.marker,
-            &config,
-            &mut stdout,
-        );
+        animate_columns(&col_lines, args.gap, args.marker, &config, &mut stdout);
         return;
     }
 
-    // Single-string mode (unchanged)
+    // Single-string mode
     let text = match args.text {
         Some(t) => t,
         None => {
@@ -96,6 +88,13 @@ fn main() {
         return;
     }
 
+    // When stdout is not a terminal (e.g. piped), skip animation and pass text through.
+    use std::io::IsTerminal;
+    if !std::io::stdout().is_terminal() {
+        print!("{text}");
+        return;
+    }
+
     let resolved_charset = resolve(args.charset, &text);
 
     let config = AnimConfig {
@@ -105,6 +104,7 @@ fn main() {
         order: args.order,
         scrambles_min: args.scrambles_min,
         scrambles_max: args.scrambles_max,
+        valign: crate::cli::VAlign::Top,
     };
 
     animate(&text, &config, &mut stdout);

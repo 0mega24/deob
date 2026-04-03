@@ -14,7 +14,7 @@ pub struct Args {
     #[arg(short = 's', long, default_value_t = 50)]
     pub speed: u64,
 
-    /// ANSI foreground color
+    /// ANSI foreground color for noise characters
     #[arg(short = 'C', long, default_value_t = AnsiColor::Green)]
     pub color: AnsiColor,
 
@@ -34,21 +34,21 @@ pub struct Args {
     #[arg(short = 'x', long, default_value_t = 10)]
     pub scrambles_max: u32,
 
-    /// Left column file for side-by-side mode (use with --right)
-    #[arg(long)]
-    pub left: Option<std::path::PathBuf>,
+    /// Column files for side-by-side mode (repeat for each column, minimum 2)
+    #[arg(long = "col", value_name = "FILE")]
+    pub cols: Vec<std::path::PathBuf>,
 
-    /// Right column file for side-by-side mode (use with --left)
-    #[arg(long)]
-    pub right: Option<std::path::PathBuf>,
-
-    /// Extra spaces between columns after left-column padding
+    /// Extra spaces between columns
     #[arg(long, default_value_t = 2)]
     pub gap: usize,
 
-    /// Single character delimiting scramble regions in both columns
+    /// Character delimiting scramble regions in column mode
     #[arg(long, default_value_t = '~')]
     pub marker: char,
+
+    /// Vertical alignment of shorter columns relative to the tallest
+    #[arg(long, value_enum, default_value_t = VAlign::Top)]
+    pub valign: VAlign,
 }
 
 #[derive(ValueEnum, Clone, Debug, PartialEq)]
@@ -96,6 +96,20 @@ pub enum RevealOrder {
 }
 
 impl std::fmt::Display for RevealOrder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.to_possible_value().unwrap().get_name().fmt(f)
+    }
+}
+
+#[derive(ValueEnum, Clone, Debug, PartialEq)]
+pub enum VAlign {
+    /// Align all columns to the top (default)
+    Top,
+    /// Center shorter columns vertically against the tallest
+    Center,
+}
+
+impl std::fmt::Display for VAlign {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.to_possible_value().unwrap().get_name().fmt(f)
     }

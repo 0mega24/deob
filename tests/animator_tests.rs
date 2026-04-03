@@ -37,6 +37,7 @@ fn animate_output_ends_with_real_text_and_newline() {
         order: AnimOrder::Ordered,
         scrambles_min: 1,
         scrambles_max: 1,
+        valign: deob::cli::VAlign::Top,
     };
     let mut buf: Vec<u8> = Vec::new();
     deob::animator::animate("hi", &config, &mut buf);

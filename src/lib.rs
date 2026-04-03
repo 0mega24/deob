@@ -1,4 +1,4 @@
 pub mod charset;
 pub mod cli;
 pub mod animator;
-pub mod integrations;
+pub mod layout;
