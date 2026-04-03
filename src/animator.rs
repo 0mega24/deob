@@ -28,16 +28,17 @@ pub struct AnimConfig {
     pub valign: VAlign,
 }
 
-fn to_crossterm_color(color: &AnsiColor) -> Color {
+fn to_crossterm_color(color: &AnsiColor) -> Option<Color> {
     match color {
-        AnsiColor::Black => Color::Black,
-        AnsiColor::Red => Color::DarkRed,
-        AnsiColor::Green => Color::DarkGreen,
-        AnsiColor::Yellow => Color::DarkYellow,
-        AnsiColor::Blue => Color::DarkBlue,
-        AnsiColor::Magenta => Color::DarkMagenta,
-        AnsiColor::Cyan => Color::DarkCyan,
-        AnsiColor::White => Color::White,
+        AnsiColor::Black => Some(Color::Black),
+        AnsiColor::Red => Some(Color::DarkRed),
+        AnsiColor::Green => Some(Color::DarkGreen),
+        AnsiColor::Yellow => Some(Color::DarkYellow),
+        AnsiColor::Blue => Some(Color::DarkBlue),
+        AnsiColor::Magenta => Some(Color::DarkMagenta),
+        AnsiColor::Cyan => Some(Color::DarkCyan),
+        AnsiColor::White => Some(Color::White),
+        AnsiColor::Match => None,
     }
 }
 
@@ -64,7 +65,7 @@ pub fn animate(text: &str, config: &AnimConfig, stdout: &mut impl Write) {
     let chars: Vec<char> = text.chars().collect();
     let len = chars.len();
     let mut rng = rand::thread_rng();
-    let color = to_crossterm_color(&config.color);
+    let color = to_crossterm_color(&config.color).unwrap_or(Color::DarkGreen);
 
     let non_ws_indices: Vec<usize> = chars
         .iter()
@@ -172,7 +173,7 @@ fn render_segs(
     segs: &[ReadySegment],
     frame: usize,
     charset: ResolvedCharSet,
-    anim_color: Color,
+    anim_color: Option<Color>,
     in_anim: &mut bool,
     rng: &mut impl Rng,
 ) {
@@ -180,7 +181,9 @@ fn render_segs(
         match seg {
             ReadySegment::Static(s) => {
                 if *in_anim {
-                    stdout.execute(ResetColor).ok();
+                    if anim_color.is_some() {
+                        stdout.execute(ResetColor).ok();
+                    }
                     *in_anim = false;
                 }
                 stdout.execute(Print(s)).ok();
@@ -189,7 +192,9 @@ fn render_segs(
                 for sc in chars {
                     if sc.lock_frame <= frame || sc.real.is_whitespace() {
                         if *in_anim {
-                            stdout.execute(ResetColor).ok();
+                            if anim_color.is_some() {
+                                stdout.execute(ResetColor).ok();
+                            }
                             *in_anim = false;
                         }
                         if !sc.color_before.is_empty() {
@@ -198,7 +203,9 @@ fn render_segs(
                         stdout.execute(Print(sc.real)).ok();
                     } else {
                         if !*in_anim {
-                            stdout.execute(SetForegroundColor(anim_color)).ok();
+                            if let Some(c) = anim_color {
+                                stdout.execute(SetForegroundColor(c)).ok();
+                            }
                             *in_anim = true;
                         }
                         stdout.execute(Print(random_char(charset, rng))).ok();
@@ -215,14 +222,16 @@ fn render_row(
     paddings: &[usize],
     frame: usize,
     charset: ResolvedCharSet,
-    anim_color: Color,
+    anim_color: Option<Color>,
     rng: &mut impl Rng,
 ) {
     let mut in_anim = false;
     for (segs, &padding) in cols.iter().zip(paddings.iter()) {
         render_segs(stdout, segs, frame, charset, anim_color, &mut in_anim, rng);
         if in_anim {
-            stdout.execute(ResetColor).ok();
+            if anim_color.is_some() {
+                stdout.execute(ResetColor).ok();
+            }
             in_anim = false;
         }
         stdout.execute(Print(" ".repeat(padding))).ok();
@@ -266,6 +275,7 @@ pub fn animate_columns(
     };
 
     // 3. Terminal width truncation — each column gets whatever space remains after previous ones.
+    // Columns with zero available width are dropped entirely so they don't corrupt layout.
     let cols: Vec<Vec<String>> = if let Ok((term_w, _)) = crossterm::terminal::size() {
         let max_ws: Vec<usize> = cols
             .iter()
@@ -274,8 +284,11 @@ pub fn animate_columns(
         let mut used = 0usize;
         cols.iter()
             .enumerate()
-            .map(|(ci, col)| {
+            .filter_map(|(ci, col)| {
                 let avail = (term_w as usize).saturating_sub(used);
+                if avail == 0 {
+                    return None; // column is entirely off-screen, drop it
+                }
                 let col_out = col
                     .iter()
                     .map(|l| {
@@ -290,7 +303,7 @@ pub fn animate_columns(
                 if ci + 1 < cols.len() {
                     used = used.saturating_add(gap);
                 }
-                col_out
+                Some(col_out)
             })
             .collect()
     } else {

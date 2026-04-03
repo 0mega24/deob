@@ -61,6 +61,8 @@ pub enum AnsiColor {
     Magenta,
     Cyan,
     White,
+    /// Use the source text's own colors for noise characters instead of a fixed color
+    Match,
 }
 
 impl std::fmt::Display for AnsiColor {
