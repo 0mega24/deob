@@ -138,15 +138,47 @@ enum ReadySegment {
     Scrambled(Vec<ScrambleChar>),
 }
 
+/// Returns all SGR ANSI codes from `s` concatenated in order.
+/// Used to propagate color state from a static segment into the next scrambled one.
+fn collect_sgr_codes(s: &str) -> String {
+    let mut result = String::new();
+    let mut chars = s.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '\x1b' && chars.peek() == Some(&'[') {
+            chars.next();
+            let mut seq = String::from("\x1b[");
+            while let Some(&c) = chars.peek() {
+                chars.next();
+                seq.push(c);
+                if c.is_ascii_alphabetic() {
+                    break;
+                }
+            }
+            if seq.ends_with('m') {
+                result.push_str(&seq);
+            }
+        }
+    }
+    result
+}
+
 fn build_ready_line(
     segs: Vec<Segment>,
     total_frames: usize,
     order: &RevealOrder,
     rng: &mut impl Rng,
 ) -> Vec<ReadySegment> {
-    segs.into_iter()
-        .map(|seg| match seg {
-            Segment::Static(s) => ReadySegment::Static(s),
+    let mut inherited_color = String::new();
+    let mut ready = Vec::with_capacity(segs.len());
+    for seg in segs {
+        match seg {
+            Segment::Static(s) => {
+                let sgr = collect_sgr_codes(&s);
+                if !sgr.is_empty() {
+                    inherited_color = sgr;
+                }
+                ready.push(ReadySegment::Static(s));
+            }
             Segment::Scrambled(s) => {
                 let text_chars = chars_with_ansi_context(&s);
                 let n = text_chars.len();
@@ -155,28 +187,24 @@ fn build_ready_line(
                 if *order == RevealOrder::Ordered {
                     frames.sort_unstable();
                 }
-                let mut current_color = String::new();
-                ReadySegment::Scrambled(
-                    text_chars
-                        .into_iter()
-                        .zip(frames)
-                        .map(|((c, color_before), f)| {
-                            if !color_before.is_empty() {
-                                current_color = color_before.clone();
-                            }
-                            let effective_color = current_color.clone();
-                            ScrambleChar {
-                                real: c,
-                                lock_frame: f,
-                                color_before,
-                                effective_color,
-                            }
-                        })
-                        .collect(),
-                )
+                let mut current_color = inherited_color.clone();
+                let chars_out: Vec<ScrambleChar> = text_chars
+                    .into_iter()
+                    .zip(frames)
+                    .map(|((c, color_before), f)| {
+                        if !color_before.is_empty() {
+                            current_color = color_before.clone();
+                        }
+                        let effective_color = current_color.clone();
+                        ScrambleChar { real: c, lock_frame: f, color_before, effective_color }
+                    })
+                    .collect();
+                inherited_color = current_color;
+                ready.push(ReadySegment::Scrambled(chars_out));
             }
-        })
-        .collect()
+        }
+    }
+    ready
 }
 
 fn render_segs(
