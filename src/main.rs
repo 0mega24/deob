@@ -13,7 +13,7 @@ use crossterm::{cursor, ExecutableCommand};
 
 use cli::Args;
 use charset::resolve;
-use animator::{animate, animate_columns, AnimConfig};
+use animator::{animate, animate_columns, animate_marked, AnimConfig};
 
 fn read_file_lines(path: &std::path::PathBuf) -> Result<Vec<String>, String> {
     std::fs::read_to_string(path)
@@ -107,5 +107,9 @@ fn main() {
         valign: crate::cli::VAlign::Top,
     };
 
-    animate(&text, &config, &mut stdout);
+    if args.markers {
+        animate_marked(&text, args.marker, &config, &mut stdout);
+    } else {
+        animate(&text, &config, &mut stdout);
+    }
 }

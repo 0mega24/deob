@@ -49,6 +49,10 @@ pub struct Args {
     /// Vertical alignment of shorter columns relative to the tallest
     #[arg(long, value_enum, default_value_t = VAlign::Top)]
     pub valign: VAlign,
+
+    /// Enable ~marker~ scramble regions in single-string mode
+    #[arg(long)]
+    pub markers: bool,
 }
 
 #[derive(ValueEnum, Clone, Debug, PartialEq)]

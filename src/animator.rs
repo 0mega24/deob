@@ -121,6 +121,101 @@ pub fn animate(text: &str, config: &AnimConfig, stdout: &mut impl Write) {
     stdout.flush().ok();
 }
 
+// ── Marker-aware single-string animation ────────────────────────────────────
+
+pub fn animate_marked(text: &str, marker: char, config: &AnimConfig, stdout: &mut impl Write) {
+    if text.is_empty() {
+        return;
+    }
+
+    let lines: Vec<&str> = text.lines().collect();
+    let n_lines = lines.len();
+    let mut rng = rand::thread_rng();
+    let color = to_crossterm_color(&config.color);
+
+    let parsed: Vec<Vec<Segment>> =
+        lines.iter().map(|l| parse_markers(l, marker)).collect();
+
+    let max_chars = parsed
+        .iter()
+        .flatten()
+        .filter_map(|seg| {
+            if let Segment::Scrambled(s) = seg {
+                Some(strip_ansi(s).chars().count())
+            } else {
+                None
+            }
+        })
+        .max()
+        .unwrap_or(0);
+
+    let per_char = if max_chars == 0 {
+        1
+    } else {
+        rng.gen_range(config.scrambles_min..=config.scrambles_max) as usize
+    };
+    let total_frames = max_chars * per_char;
+
+    let ready: Vec<Vec<ReadySegment>> = parsed
+        .into_iter()
+        .map(|segs| build_ready_line(segs, total_frames.max(1), &config.order, &mut rng))
+        .collect();
+
+    stdout.execute(cursor::Hide).ok();
+
+    for _ in 0..n_lines {
+        stdout.execute(Print('\n')).ok();
+    }
+    stdout.execute(cursor::MoveUp(n_lines as u16)).ok();
+
+    if max_chars == 0 {
+        for segs in &ready {
+            stdout.execute(cursor::MoveToColumn(0)).ok();
+            let mut in_anim = false;
+            render_segs(stdout, segs, 1, config.charset, color, &mut in_anim, &mut rng);
+            if in_anim && color.is_some() {
+                stdout.execute(ResetColor).ok();
+            }
+            stdout.execute(Print('\n')).ok();
+        }
+        stdout.execute(cursor::Show).ok();
+        stdout.flush().ok();
+        return;
+    }
+
+    for segs in &ready {
+        stdout.execute(cursor::MoveToColumn(0)).ok();
+        let mut in_anim = false;
+        render_segs(stdout, segs, 0, config.charset, color, &mut in_anim, &mut rng);
+        if in_anim && color.is_some() {
+            stdout.execute(ResetColor).ok();
+        }
+        stdout.execute(Print('\n')).ok();
+    }
+    stdout.flush().ok();
+    std::thread::sleep(config.speed);
+
+    for frame in 1..=total_frames {
+        stdout.execute(cursor::MoveUp(n_lines as u16)).ok();
+        for segs in &ready {
+            stdout.execute(cursor::MoveToColumn(0)).ok();
+            let mut in_anim = false;
+            render_segs(stdout, segs, frame, config.charset, color, &mut in_anim, &mut rng);
+            if in_anim && color.is_some() {
+                stdout.execute(ResetColor).ok();
+            }
+            stdout.execute(Print('\n')).ok();
+        }
+        stdout.flush().ok();
+        if frame < total_frames {
+            std::thread::sleep(config.speed);
+        }
+    }
+
+    stdout.execute(cursor::Show).ok();
+    stdout.flush().ok();
+}
+
 // ── Multi-column animation ───────────────────────────────────────────────────
 
 struct ScrambleChar {
