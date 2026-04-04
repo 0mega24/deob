@@ -4,8 +4,6 @@ mod animator;
 mod layout;
 
 use std::io::{self, BufRead};
-use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use clap::Parser;
@@ -24,7 +22,6 @@ fn read_file_lines(path: &std::path::PathBuf) -> Result<Vec<String>, String> {
 fn main() {
     let args = Args::parse();
 
-    let _interrupted = Arc::new(AtomicBool::new(false));
     ctrlc::set_handler(move || {
         let mut stdout = io::stdout();
         stdout.execute(cursor::Show).ok();

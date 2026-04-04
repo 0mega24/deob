@@ -1,4 +1,6 @@
-use deob::layout::{compose_layout, parse_markers, propagate_sgr_across_lines, Segment};
+use deob::layout::{
+    collect_sgr_codes, compose_layout, parse_markers, propagate_sgr_across_lines, Segment,
+};
 use deob::animator::{animate_columns, AnimConfig, RevealOrder};
 use deob::charset::ResolvedCharSet;
 use deob::cli::{AnsiColor, VAlign};
@@ -77,6 +79,16 @@ fn custom_marker_char() {
     assert_eq!(
         parse_markers("OS: |Ubuntu|", '|'),
         vec![Segment::Static("OS: ".into()), Segment::Scrambled("Ubuntu".into())]
+    );
+}
+
+// ── collect_sgr_codes ───────────────────────────────────────────────────────
+
+#[test]
+fn collect_sgr_codes_keeps_only_m_sequences_in_order() {
+    assert_eq!(
+        collect_sgr_codes("\x1b[1m\x1b[36mhi"),
+        "\x1b[1m\x1b[36m"
     );
 }
 

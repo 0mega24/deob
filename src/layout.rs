@@ -87,27 +87,47 @@ fn apply_sgr_params(nums: &[usize], state: &mut GraphicsState) {
     }
 }
 
-/// Apply all CSI SGR (`…m`) sequences in order (same scan as other helpers).
-fn parse_sgr_line(line: &str) -> GraphicsState {
-    let mut state = GraphicsState::default();
-    let mut chars = line.chars().peekable();
+fn sgr_params_from_full_sequence(seq: &str) -> &str {
+    seq.strip_prefix("\x1b[")
+        .and_then(|rest| rest.strip_suffix('m'))
+        .unwrap_or("")
+}
+
+/// Invoke `f` with each full CSI SGR sequence (`\x1b[…m`) in order.
+fn for_each_sgr_m_sequence(s: &str, mut f: impl FnMut(&str)) {
+    let mut chars = s.chars().peekable();
     while let Some(ch) = chars.next() {
         if ch == '\x1b' && chars.peek() == Some(&'[') {
             chars.next();
-            let mut params = String::new();
+            let mut seq = String::from("\x1b[");
             while let Some(&c) = chars.peek() {
                 chars.next();
+                seq.push(c);
                 if c.is_ascii_alphabetic() {
                     if c == 'm' {
-                        let nums = parse_sgr_param_nums(&params);
-                        apply_sgr_params(&nums, &mut state);
+                        f(&seq);
                     }
                     break;
                 }
-                params.push(c);
             }
         }
     }
+}
+
+/// All SGR (`…m`) sequences concatenated — propagates color from static segments into the next scrambled region.
+pub fn collect_sgr_codes(s: &str) -> String {
+    let mut result = String::new();
+    for_each_sgr_m_sequence(s, |seq| result.push_str(seq));
+    result
+}
+
+fn parse_sgr_line(line: &str) -> GraphicsState {
+    let mut state = GraphicsState::default();
+    for_each_sgr_m_sequence(line, |seq| {
+        let params = sgr_params_from_full_sequence(seq);
+        let nums = parse_sgr_param_nums(params);
+        apply_sgr_params(&nums, &mut state);
+    });
     state
 }
 

@@ -12,8 +12,9 @@ use rand::Rng;
 use crate::charset::{random_char, ResolvedCharSet};
 use crate::cli::{AnsiColor, VAlign};
 use crate::layout::{
-    chars_with_ansi_context, compose_layout, parse_markers, propagate_sgr_across_lines, strip_ansi,
-    strip_cursor_codes, trim_trailing_empty, truncate_to_visual_width, visual_width, Segment,
+    chars_with_ansi_context, collect_sgr_codes, compose_layout, parse_markers,
+    propagate_sgr_across_lines, strip_ansi, strip_cursor_codes, trim_trailing_empty,
+    truncate_to_visual_width, visual_width, Segment,
 };
 
 pub use crate::cli::RevealOrder;
@@ -42,7 +43,6 @@ fn to_crossterm_color(color: &AnsiColor) -> Option<Color> {
     }
 }
 
-#[allow(dead_code)]
 pub fn build_schedule(
     candidate_indices: Vec<usize>,
     order: RevealOrder,
@@ -233,30 +233,6 @@ enum ReadySegment {
     Scrambled(Vec<ScrambleChar>),
 }
 
-/// Returns all SGR ANSI codes from `s` concatenated in order.
-/// Used to propagate color state from a static segment into the next scrambled one.
-fn collect_sgr_codes(s: &str) -> String {
-    let mut result = String::new();
-    let mut chars = s.chars().peekable();
-    while let Some(ch) = chars.next() {
-        if ch == '\x1b' && chars.peek() == Some(&'[') {
-            chars.next();
-            let mut seq = String::from("\x1b[");
-            while let Some(&c) = chars.peek() {
-                chars.next();
-                seq.push(c);
-                if c.is_ascii_alphabetic() {
-                    break;
-                }
-            }
-            if seq.ends_with('m') {
-                result.push_str(&seq);
-            }
-        }
-    }
-    result
-}
-
 fn build_ready_line(
     segs: Vec<Segment>,
     total_frames: usize,
@@ -401,8 +377,7 @@ pub fn animate_columns(
                 .iter()
                 .map(|col| {
                     let p = (max_h - col.len()) / 2;
-                    std::iter::repeat(String::new())
-                        .take(p)
+                    std::iter::repeat_n(String::new(), p)
                         .chain(col.iter().cloned())
                         .collect()
                 })
