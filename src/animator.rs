@@ -12,8 +12,8 @@ use rand::Rng;
 use crate::charset::{random_char, ResolvedCharSet};
 use crate::cli::{AnsiColor, VAlign};
 use crate::layout::{
-    chars_with_ansi_context, compose_layout, parse_markers, strip_ansi, strip_cursor_codes,
-    trim_trailing_empty, truncate_to_visual_width, visual_width, Segment,
+    chars_with_ansi_context, compose_layout, parse_markers, propagate_sgr_across_lines, strip_ansi,
+    strip_cursor_codes, trim_trailing_empty, truncate_to_visual_width, visual_width, Segment,
 };
 
 pub use crate::cli::RevealOrder;
@@ -446,6 +446,12 @@ pub fn animate_columns(
     } else {
         cols
     };
+
+    // 3b. Carry SGR across lines when the source omits repeats (TTY-style continuation).
+    let cols: Vec<Vec<String>> = cols
+        .into_iter()
+        .map(|col| propagate_sgr_across_lines(col, marker))
+        .collect();
 
     // 4. Compose layout: rows × cols of (content, padding_after).
     let layout = compose_layout(&cols, gap, marker);

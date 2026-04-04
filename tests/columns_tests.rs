@@ -1,4 +1,4 @@
-use deob::layout::{compose_layout, parse_markers, Segment};
+use deob::layout::{compose_layout, parse_markers, propagate_sgr_across_lines, Segment};
 use deob::animator::{animate_columns, AnimConfig, RevealOrder};
 use deob::charset::ResolvedCharSet;
 use deob::cli::{AnsiColor, VAlign};
@@ -78,6 +78,40 @@ fn custom_marker_char() {
         parse_markers("OS: |Ubuntu|", '|'),
         vec![Segment::Static("OS: ".into()), Segment::Scrambled("Ubuntu".into())]
     );
+}
+
+// ── propagate_sgr_across_lines ─────────────────────────────────────────────
+
+#[test]
+fn propagate_repeats_sgr_on_continuation_lines() {
+    let out = propagate_sgr_across_lines(
+        vec![
+            "\x1b[1m\x1b[36m    '".into(),
+            "        'o".into(),
+            "        'ooo".into(),
+        ],
+        '~',
+    );
+    assert!(out[1].starts_with("\x1b[1m\x1b[36m"), "line 2: {}", out[1]);
+    assert!(out[2].starts_with("\x1b[1m\x1b[36m"), "line 3: {}", out[2]);
+}
+
+#[test]
+fn propagate_skips_when_line_opens_with_escape() {
+    let out = propagate_sgr_across_lines(
+        vec!["\x1b[36mx".into(), "\x1b[0my".into()],
+        '~',
+    );
+    assert_eq!(out[1], "\x1b[0my");
+}
+
+#[test]
+fn propagate_empty_line_preserves_state() {
+    let out = propagate_sgr_across_lines(
+        vec!["\x1b[36ma".into(), "".into(), "b".into()],
+        '~',
+    );
+    assert_eq!(out[2], "\x1b[36mb");
 }
 
 // ── compose_layout ───────────────────────────────────────────────────────────
