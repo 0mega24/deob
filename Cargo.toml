@@ -2,6 +2,11 @@
 name = "deob"
 version = "0.1.0"
 edition = "2021"
+description = "Terminal text animation that scrambles characters and reveals them with configurable noise"
+repository = "https://github.com/0mega24/deob"
+license = "MIT"
+keywords = ["terminal", "animation", "cli", "ansi", "text"]
+categories = ["command-line-utilities"]
 
 [[bin]]
 name = "deob"
@@ -12,3 +17,15 @@ clap = { version = "4", features = ["derive"] }
 crossterm = "0.27"
 rand = { version = "0.8", features = ["small_rng"] }
 ctrlc = "3"
+
+[profile.release]
+strip = true
+lto = true
+opt-level = "z"
+codegen-units = 1
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+pedantic = "warn"

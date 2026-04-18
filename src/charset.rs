@@ -20,10 +20,15 @@ pub fn resolve(charset: CharSet, input: &str) -> ResolvedCharSet {
             if input.is_empty() {
                 return ResolvedCharSet::Hacker;
             }
-            let has_symbol = input.chars().any(|c| !c.is_alphanumeric() && !c.is_whitespace());
+            let has_symbol = input
+                .chars()
+                .any(|c| !c.is_alphanumeric() && !c.is_whitespace());
             if has_symbol {
                 ResolvedCharSet::Ascii
-            } else if input.chars().all(|c| c.is_alphanumeric() || c.is_whitespace()) {
+            } else if input
+                .chars()
+                .all(|c| c.is_alphanumeric() || c.is_whitespace())
+            {
                 ResolvedCharSet::Alnum
             } else {
                 ResolvedCharSet::Hacker
@@ -42,8 +47,6 @@ pub fn random_char(set: ResolvedCharSet, rng: &mut impl Rng) -> char {
             let idx = rng.gen_range(0..ALNUM_CHARS.len());
             ALNUM_CHARS[idx] as char
         }
-        ResolvedCharSet::Ascii => {
-            rng.gen_range('!'..='~')
-        }
+        ResolvedCharSet::Ascii => rng.gen_range('!'..='~'),
     }
 }

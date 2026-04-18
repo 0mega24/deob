@@ -1,6 +1,6 @@
-mod cli;
-mod charset;
 mod animator;
+mod charset;
+mod cli;
 mod layout;
 
 use std::io::{self, BufRead};
@@ -9,9 +9,9 @@ use std::time::Duration;
 use clap::Parser;
 use crossterm::{cursor, ExecutableCommand};
 
-use cli::Args;
-use charset::resolve;
 use animator::{animate, animate_columns, animate_marked, AnimConfig};
+use charset::resolve;
+use cli::Args;
 
 fn read_file_lines(path: &std::path::PathBuf) -> Result<Vec<String>, String> {
     std::fs::read_to_string(path)
@@ -47,8 +47,11 @@ fn main() {
                 }
             }
         }
-        let combined =
-            col_lines.iter().map(|c| c.join("\n")).collect::<Vec<_>>().join("\n");
+        let combined = col_lines
+            .iter()
+            .map(|c| c.join("\n"))
+            .collect::<Vec<_>>()
+            .join("\n");
         let config = AnimConfig {
             speed: Duration::from_millis(args.speed),
             color: args.color,

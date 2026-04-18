@@ -1,9 +1,9 @@
-use deob::layout::{
-    collect_sgr_codes, compose_layout, parse_markers, propagate_sgr_across_lines, Segment,
-};
 use deob::animator::{animate_columns, AnimConfig, RevealOrder};
 use deob::charset::ResolvedCharSet;
 use deob::cli::{AnsiColor, VAlign};
+use deob::layout::{
+    collect_sgr_codes, compose_layout, parse_markers, propagate_sgr_across_lines, Segment,
+};
 use std::time::Duration;
 
 fn zero_config() -> AnimConfig {
@@ -22,14 +22,20 @@ fn zero_config() -> AnimConfig {
 
 #[test]
 fn no_markers_returns_single_static() {
-    assert_eq!(parse_markers("hello world", '~'), vec![Segment::Static("hello world".into())]);
+    assert_eq!(
+        parse_markers("hello world", '~'),
+        vec![Segment::Static("hello world".into())]
+    );
 }
 
 #[test]
 fn single_marker_region_mid_line() {
     assert_eq!(
         parse_markers("OS: ~Ubuntu~", '~'),
-        vec![Segment::Static("OS: ".into()), Segment::Scrambled("Ubuntu".into())]
+        vec![
+            Segment::Static("OS: ".into()),
+            Segment::Scrambled("Ubuntu".into())
+        ]
     );
 }
 
@@ -49,7 +55,10 @@ fn multiple_marker_regions() {
 fn marker_region_at_start() {
     assert_eq!(
         parse_markers("~Ubuntu~ 24.04", '~'),
-        vec![Segment::Scrambled("Ubuntu".into()), Segment::Static(" 24.04".into())]
+        vec![
+            Segment::Scrambled("Ubuntu".into()),
+            Segment::Static(" 24.04".into())
+        ]
     );
 }
 
@@ -57,7 +66,10 @@ fn marker_region_at_start() {
 fn marker_region_at_end() {
     assert_eq!(
         parse_markers("OS: ~Ubuntu~", '~'),
-        vec![Segment::Static("OS: ".into()), Segment::Scrambled("Ubuntu".into())]
+        vec![
+            Segment::Static("OS: ".into()),
+            Segment::Scrambled("Ubuntu".into())
+        ]
     );
 }
 
@@ -78,7 +90,10 @@ fn empty_line_returns_empty_vec() {
 fn custom_marker_char() {
     assert_eq!(
         parse_markers("OS: |Ubuntu|", '|'),
-        vec![Segment::Static("OS: ".into()), Segment::Scrambled("Ubuntu".into())]
+        vec![
+            Segment::Static("OS: ".into()),
+            Segment::Scrambled("Ubuntu".into())
+        ]
     );
 }
 
@@ -86,10 +101,7 @@ fn custom_marker_char() {
 
 #[test]
 fn collect_sgr_codes_keeps_only_m_sequences_in_order() {
-    assert_eq!(
-        collect_sgr_codes("\x1b[1m\x1b[36mhi"),
-        "\x1b[1m\x1b[36m"
-    );
+    assert_eq!(collect_sgr_codes("\x1b[1m\x1b[36mhi"), "\x1b[1m\x1b[36m");
 }
 
 // ── propagate_sgr_across_lines ─────────────────────────────────────────────
@@ -110,19 +122,13 @@ fn propagate_repeats_sgr_on_continuation_lines() {
 
 #[test]
 fn propagate_skips_when_line_opens_with_escape() {
-    let out = propagate_sgr_across_lines(
-        vec!["\x1b[36mx".into(), "\x1b[0my".into()],
-        '~',
-    );
+    let out = propagate_sgr_across_lines(vec!["\x1b[36mx".into(), "\x1b[0my".into()], '~');
     assert_eq!(out[1], "\x1b[0my");
 }
 
 #[test]
 fn propagate_empty_line_preserves_state() {
-    let out = propagate_sgr_across_lines(
-        vec!["\x1b[36ma".into(), "".into(), "b".into()],
-        '~',
-    );
+    let out = propagate_sgr_across_lines(vec!["\x1b[36ma".into(), "".into(), "b".into()], '~');
     assert_eq!(out[2], "\x1b[36mb");
 }
 
@@ -201,7 +207,10 @@ fn animate_cols_output_contains_real_text() {
     let output = String::from_utf8_lossy(&buf);
     assert!(output.contains("logo"), "left column text missing");
     assert!(output.contains("OS: "), "static right text missing");
-    assert!(output.contains("Ubuntu"), "scrambled text missing in final state");
+    assert!(
+        output.contains("Ubuntu"),
+        "scrambled text missing in final state"
+    );
 }
 
 #[test]

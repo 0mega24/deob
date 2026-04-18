@@ -1,2 +1,14 @@
 /target
 /docs
+# Editor / IDE
+.vscode/
+.idea/
+*.iml
+# OS
+.DS_Store
+Thumbs.db
+# Vim
+*.swp
+*.swo
+# Env
+.env

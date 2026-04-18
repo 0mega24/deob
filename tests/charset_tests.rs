@@ -1,7 +1,7 @@
 use deob::charset::{random_char, resolve, ResolvedCharSet};
 use deob::cli::CharSet;
-use rand::SeedableRng;
 use rand::rngs::SmallRng;
+use rand::SeedableRng;
 
 #[test]
 fn auto_all_alnum_resolves_to_alnum() {
@@ -20,7 +20,10 @@ fn auto_empty_resolves_to_hacker() {
 
 #[test]
 fn explicit_hacker_stays_hacker() {
-    assert_eq!(resolve(CharSet::Hacker, "anything"), ResolvedCharSet::Hacker);
+    assert_eq!(
+        resolve(CharSet::Hacker, "anything"),
+        ResolvedCharSet::Hacker
+    );
 }
 
 #[test]
@@ -47,6 +50,10 @@ fn random_char_ascii_is_printable() {
     let mut rng = SmallRng::seed_from_u64(7);
     for _ in 0..100 {
         let c = random_char(ResolvedCharSet::Ascii, &mut rng);
-        assert!(('!'..='~').contains(&c), "expected printable ASCII, got {:?}", c);
+        assert!(
+            ('!'..='~').contains(&c),
+            "expected printable ASCII, got {:?}",
+            c
+        );
     }
 }

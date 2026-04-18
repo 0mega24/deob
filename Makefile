@@ -2,7 +2,7 @@ BINARY  := deob
 DESTDIR := /usr/local/bin
 CARGO   := $(shell which cargo)
 
-.PHONY: build install uninstall test clean
+.PHONY: build install uninstall test clean fmt lint
 
 build:
 	$(CARGO) build --release
@@ -18,3 +18,9 @@ test:
 
 clean:
 	$(CARGO) clean
+
+fmt:
+	$(CARGO) fmt --check
+
+lint:
+	$(CARGO) clippy -- -D warnings

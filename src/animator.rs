@@ -84,7 +84,9 @@ pub fn animate(text: &str, config: &AnimConfig, stdout: &mut impl Write) {
         if real_char.is_whitespace() || locked[i] {
             stdout.execute(Print(real_char)).ok();
         } else {
-            stdout.execute(Print(random_char(config.charset, &mut rng))).ok();
+            stdout
+                .execute(Print(random_char(config.charset, &mut rng)))
+                .ok();
         }
     }
     stdout.flush().ok();
@@ -99,7 +101,9 @@ pub fn animate(text: &str, config: &AnimConfig, stdout: &mut impl Write) {
                 if real_char.is_whitespace() || locked[i] {
                     stdout.execute(Print(real_char)).ok();
                 } else {
-                    stdout.execute(Print(random_char(config.charset, &mut rng))).ok();
+                    stdout
+                        .execute(Print(random_char(config.charset, &mut rng)))
+                        .ok();
                 }
             }
             stdout.flush().ok();
@@ -133,8 +137,7 @@ pub fn animate_marked(text: &str, marker: char, config: &AnimConfig, stdout: &mu
     let mut rng = rand::thread_rng();
     let color = to_crossterm_color(&config.color);
 
-    let parsed: Vec<Vec<Segment>> =
-        lines.iter().map(|l| parse_markers(l, marker)).collect();
+    let parsed: Vec<Vec<Segment>> = lines.iter().map(|l| parse_markers(l, marker)).collect();
 
     let max_chars = parsed
         .iter()
@@ -172,7 +175,15 @@ pub fn animate_marked(text: &str, marker: char, config: &AnimConfig, stdout: &mu
         for segs in &ready {
             stdout.execute(cursor::MoveToColumn(0)).ok();
             let mut in_anim = false;
-            render_segs(stdout, segs, 1, config.charset, color, &mut in_anim, &mut rng);
+            render_segs(
+                stdout,
+                segs,
+                1,
+                config.charset,
+                color,
+                &mut in_anim,
+                &mut rng,
+            );
             if in_anim && color.is_some() {
                 stdout.execute(ResetColor).ok();
             }
@@ -186,7 +197,15 @@ pub fn animate_marked(text: &str, marker: char, config: &AnimConfig, stdout: &mu
     for segs in &ready {
         stdout.execute(cursor::MoveToColumn(0)).ok();
         let mut in_anim = false;
-        render_segs(stdout, segs, 0, config.charset, color, &mut in_anim, &mut rng);
+        render_segs(
+            stdout,
+            segs,
+            0,
+            config.charset,
+            color,
+            &mut in_anim,
+            &mut rng,
+        );
         if in_anim && color.is_some() {
             stdout.execute(ResetColor).ok();
         }
@@ -200,7 +219,15 @@ pub fn animate_marked(text: &str, marker: char, config: &AnimConfig, stdout: &mu
         for segs in &ready {
             stdout.execute(cursor::MoveToColumn(0)).ok();
             let mut in_anim = false;
-            render_segs(stdout, segs, frame, config.charset, color, &mut in_anim, &mut rng);
+            render_segs(
+                stdout,
+                segs,
+                frame,
+                config.charset,
+                color,
+                &mut in_anim,
+                &mut rng,
+            );
             if in_anim && color.is_some() {
                 stdout.execute(ResetColor).ok();
             }
@@ -267,7 +294,12 @@ fn build_ready_line(
                             current_color = color_before.clone();
                         }
                         let effective_color = current_color.clone();
-                        ScrambleChar { real: c, lock_frame: f, color_before, effective_color }
+                        ScrambleChar {
+                            real: c,
+                            lock_frame: f,
+                            color_before,
+                            effective_color,
+                        }
                     })
                     .collect();
                 inherited_color = current_color;
@@ -391,7 +423,12 @@ pub fn animate_columns(
     let cols: Vec<Vec<String>> = if let Ok((term_w, _)) = crossterm::terminal::size() {
         let max_ws: Vec<usize> = cols
             .iter()
-            .map(|col| col.iter().map(|l| visual_width(l, marker)).max().unwrap_or(0))
+            .map(|col| {
+                col.iter()
+                    .map(|l| visual_width(l, marker))
+                    .max()
+                    .unwrap_or(0)
+            })
             .collect();
         let mut used = 0usize;
         cols.iter()
@@ -446,8 +483,10 @@ pub fn animate_columns(
                 .collect()
         })
         .collect();
-    let paddings: Vec<Vec<usize>> =
-        layout.iter().map(|row| row.iter().map(|(_, p)| *p).collect()).collect();
+    let paddings: Vec<Vec<usize>> = layout
+        .iter()
+        .map(|row| row.iter().map(|(_, p)| *p).collect())
+        .collect();
 
     // Max visible chars in any scrambled segment (drives total_frames).
     let max_chars = parsed
@@ -478,9 +517,7 @@ pub fn animate_columns(
         .into_iter()
         .map(|row| {
             row.into_iter()
-                .map(|segs| {
-                    build_ready_line(segs, total_frames.max(1), &config.order, &mut rng)
-                })
+                .map(|segs| build_ready_line(segs, total_frames.max(1), &config.order, &mut rng))
                 .collect()
         })
         .collect();
@@ -496,7 +533,15 @@ pub fn animate_columns(
         for (i, row) in ready.iter().enumerate() {
             stdout.execute(cursor::MoveToColumn(0)).ok();
             let col_segs: Vec<&[ReadySegment]> = row.iter().map(|c| c.as_slice()).collect();
-            render_row(stdout, &col_segs, &paddings[i], 1, config.charset, color, &mut rng);
+            render_row(
+                stdout,
+                &col_segs,
+                &paddings[i],
+                1,
+                config.charset,
+                color,
+                &mut rng,
+            );
         }
         stdout.execute(cursor::Show).ok();
         stdout.flush().ok();
@@ -507,7 +552,15 @@ pub fn animate_columns(
     for (i, row) in ready.iter().enumerate() {
         stdout.execute(cursor::MoveToColumn(0)).ok();
         let col_segs: Vec<&[ReadySegment]> = row.iter().map(|c| c.as_slice()).collect();
-        render_row(stdout, &col_segs, &paddings[i], 0, config.charset, color, &mut rng);
+        render_row(
+            stdout,
+            &col_segs,
+            &paddings[i],
+            0,
+            config.charset,
+            color,
+            &mut rng,
+        );
     }
     stdout.flush().ok();
     std::thread::sleep(config.speed);
@@ -518,7 +571,15 @@ pub fn animate_columns(
         for (i, row) in ready.iter().enumerate() {
             stdout.execute(cursor::MoveToColumn(0)).ok();
             let col_segs: Vec<&[ReadySegment]> = row.iter().map(|c| c.as_slice()).collect();
-            render_row(stdout, &col_segs, &paddings[i], frame, config.charset, color, &mut rng);
+            render_row(
+                stdout,
+                &col_segs,
+                &paddings[i],
+                frame,
+                config.charset,
+                color,
+                &mut rng,
+            );
         }
         stdout.flush().ok();
         if frame < total_frames {

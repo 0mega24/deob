@@ -319,18 +319,19 @@ pub fn truncate_to_visual_width(s: &str, max_width: usize) -> String {
 /// Returns rows × cols: each `(content, padding_after_this_col)`.
 /// The last column always has padding = 0.
 /// Shorter columns are padded with empty strings to match the tallest column.
-pub fn compose_layout(
-    cols: &[Vec<String>],
-    gap: usize,
-    marker: char,
-) -> Vec<Vec<(String, usize)>> {
+pub fn compose_layout(cols: &[Vec<String>], gap: usize, marker: char) -> Vec<Vec<(String, usize)>> {
     let n = cols.len();
     if n == 0 {
         return Vec::new();
     }
     let max_widths: Vec<usize> = cols
         .iter()
-        .map(|col| col.iter().map(|l| visual_width(l, marker)).max().unwrap_or(0))
+        .map(|col| {
+            col.iter()
+                .map(|l| visual_width(l, marker))
+                .max()
+                .unwrap_or(0)
+        })
         .collect();
     let height = cols.iter().map(|c| c.len()).max().unwrap_or(0);
     let empty = String::new();
@@ -341,7 +342,11 @@ pub fn compose_layout(
                 .map(|ci| {
                     let content = cols[ci].get(row).unwrap_or(&empty);
                     let w = visual_width(content, marker);
-                    let padding = if ci + 1 < n { max_widths[ci] + gap - w } else { 0 };
+                    let padding = if ci + 1 < n {
+                        max_widths[ci] + gap - w
+                    } else {
+                        0
+                    };
                     (content.clone(), padding)
                 })
                 .collect()
