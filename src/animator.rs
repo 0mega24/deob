@@ -418,7 +418,7 @@ pub fn animate_columns(
         VAlign::Top => trimmed,
     };
 
-    // 3. Terminal width truncation — each column gets whatever space remains after previous ones.
+    // 3. Terminal width truncation: each column gets whatever space remains after previous ones.
     // Columns with zero available width are dropped entirely so they don't corrupt layout.
     let cols: Vec<Vec<String>> = if let Ok((term_w, _)) = crossterm::terminal::size() {
         let max_ws: Vec<usize> = cols
@@ -548,7 +548,7 @@ pub fn animate_columns(
         return;
     }
 
-    // Initial frame — all scrambled chars show noise (lock_frame all >= 1).
+    // Initial frame: all scrambled chars show noise (lock_frame all >= 1).
     for (i, row) in ready.iter().enumerate() {
         stdout.execute(cursor::MoveToColumn(0)).ok();
         let col_segs: Vec<&[ReadySegment]> = row.iter().map(|c| c.as_slice()).collect();

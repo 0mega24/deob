@@ -1,5 +1,5 @@
 //! Layout helpers: marker parsing, ANSI stripping, column composition.
-//! Pure functions — no I/O.
+//! Pure functions, no I/O.
 
 /// Terminal foreground after applying SGR `m` sequences in order (subset of ECMA-48).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -114,7 +114,7 @@ fn for_each_sgr_m_sequence(s: &str, mut f: impl FnMut(&str)) {
     }
 }
 
-/// All SGR (`…m`) sequences concatenated — propagates color from static segments into the next scrambled region.
+/// All SGR (`…m`) sequences concatenated; propagates color from static segments into the next scrambled region.
 pub fn collect_sgr_codes(s: &str) -> String {
     let mut result = String::new();
     for_each_sgr_m_sequence(s, |seq| result.push_str(seq));
